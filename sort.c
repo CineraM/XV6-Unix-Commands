@@ -8,18 +8,56 @@ Instructor: Dr. Ankur Mali
 The following is my implementation of 
 sort for xv6.
 
-
+Template parameters of the program:
+    - sort filename
+    - sort -n filename
+    - sort -r filename
 -----------------------------------------
 -----------------------------------------
 ----------------------------------------*/
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "fcntl.h"  // to create file
 
-char buf[5120];         // store the contents of the file
-char cur_str[512];      // used as a temp string, later to be inserted into list
-char list[500][512];    // array that holds all the strings
-char eval[500][512];    // used for sort comparison
+#define STRING_SIZE 256         // array size for all strings
+
+char buf[5120];                 // store the contents of the file
+char cur_str[STRING_SIZE];      // used as a temp string, later to be inserted into list
+char list[500][STRING_SIZE];    // array that holds all the strings
+char eval[500][STRING_SIZE];    // used for sort comparison
+
+
+void save(char* name, char* contents)
+{
+    int fd, i;
+    // a larger buffer will crash the program.
+    //  --> 5120 page faults! 
+    // write does not support dynamic allocation 
+    // -- sizeof(*char) will crash  
+    // this could be happening due to my poor use of memory
+    // in my algorithm, or xv6 sucks! :)
+    char copy_contens[1024] = ""; 
+    for (i=0; i<1024; i++) copy_contens[i] = contents[i];
+    
+
+    fd = open(name, O_CREATE | O_RDWR);
+    if(fd >= 0) {
+        printf(1, "%s created sucessfully\n", name);
+    } else {
+        printf(1, "error: create backup file failed\n");
+        exit();
+    }
+
+    int size = sizeof(copy_contens);
+    if(write(fd, &copy_contens, size) != size){
+        printf(1, "error: write to backup file failed\n");
+        exit();
+    }
+    printf(1, "successful write to %s\n", name);
+    printf(1, "print the contents of the file with 'cat'\n");
+    close(fd);
+}
 
 void sort(int fd, char* mode, char* outputfile)
 {
@@ -45,7 +83,7 @@ void sort(int fd, char* mode, char* outputfile)
                         cur_str[j+1] = '\0';
 
                     // append to list
-                    for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                    for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                     break;
                 }
 
@@ -54,9 +92,9 @@ void sort(int fd, char* mode, char* outputfile)
                 cur_str[j+1] = '\0';
 
                 // append to list
-                for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                 idx++;                      // increment the index for the next str
-                memset(cur_str, 0, 512);    // clear the current string buffer for the next str
+                memset(cur_str, 0, STRING_SIZE);    // clear the current string buffer for the next str
                 j=0;                        // reset the counter
                 
                 // next char is \n
@@ -88,7 +126,7 @@ void sort(int fd, char* mode, char* outputfile)
         }
     }
 
-    memset(cur_str, 0, 512); // clear the buffer, used to swap
+    memset(cur_str, 0, STRING_SIZE); // clear the buffer, used to swap
     int k;
     int z = 0;
     int copy_idx = 0;
@@ -98,30 +136,30 @@ void sort(int fd, char* mode, char* outputfile)
     for(i=0; i<=idx; i++)
     {
         // finding alpha, or numeric character index in current string
-        for(z=0; z<512; z++)
+        for(z=0; z<STRING_SIZE; z++)
         {
             if (list[i][z] >= 48 && list[i][z] <= 57) break;  // digits
             if (list[i][z] >= 65 && list[i][z] <= 90) break;  // cap
             if (list[i][z] >= 97 && list[i][z] <= 122) break; // lower
             if (list[i][z] == '\0') break;
         }
-        if(z==512 || list[i][z] == '\0')    // if there is not a numeric || alpha char, copy all the string
+        if(z==STRING_SIZE || list[i][z] == '\0')    // if there is not a numeric || alpha char, copy all the string
         {
-            for(k = 0; k<512; k++) cur_str[copy_idx] = list[i][copy_idx];
+            for(k = 0; k<STRING_SIZE; k++) cur_str[copy_idx] = list[i][copy_idx];
         }
         else // truncate the string until the desired character
         {
             copy_idx = 0;
-            for(k = z; k<512; k++)
+            for(k = z; k<STRING_SIZE; k++)
             {
                 cur_str[copy_idx] = list[i][k];
                 copy_idx++;
             }
         }
         // copy the string into eval
-        for(j=0; j<512;j++) eval[eidx][j] = cur_str[j];
+        for(j=0; j<STRING_SIZE;j++) eval[eidx][j] = cur_str[j];
         eidx++; // increase index for next string
-        memset(cur_str, 0, 512);
+        memset(cur_str, 0, STRING_SIZE);
     }
 
     // bubble sort
@@ -134,13 +172,13 @@ void sort(int fd, char* mode, char* outputfile)
             if(strcmp(eval[i], eval[j]) > 0)
             {
                 // original elements
-                for(k=0; k<512;k++) cur_str[k] = list[i][k];
-                for(k=0; k<512;k++) list[i][k] = list[j][k]; 
-                for(k=0; k<512;k++) list[j][k] = cur_str[k];
+                for(k=0; k<STRING_SIZE;k++) cur_str[k] = list[i][k];
+                for(k=0; k<STRING_SIZE;k++) list[i][k] = list[j][k]; 
+                for(k=0; k<STRING_SIZE;k++) list[j][k] = cur_str[k];
                 // truncated elements
-                for(k=0; k<512;k++) cur_str[k] = eval[i][k];
-                for(k=0; k<512;k++) eval[i][k] = eval[j][k]; 
-                for(k=0; k<512;k++) eval[j][k] = cur_str[k];
+                for(k=0; k<STRING_SIZE;k++) cur_str[k] = eval[i][k];
+                for(k=0; k<STRING_SIZE;k++) eval[i][k] = eval[j][k]; 
+                for(k=0; k<STRING_SIZE;k++) eval[j][k] = cur_str[k];
                 
             }
         }
@@ -156,8 +194,19 @@ void sort(int fd, char* mode, char* outputfile)
     }
     else if(strcmp("-o", mode) == 0)    // create output file
     {
-        printf(1, "file name: %s", outputfile);
-        printf(1, "-o branch");
+        memset(cur_str, 0, 5120);
+        z=0;
+        for(j=0; j<=idx; j++)
+        {
+            for(i=0; list[j][i]!='\0'; i++)
+            {
+                buf[z] = list[j][i];
+                z++;
+            }
+        }
+        // printf(1, "out: %s", buf);
+        save(outputfile, buf);
+        // printf(1, "-o branch");
     }
 
     if(n < 0)   // reading error
@@ -167,20 +216,25 @@ void sort(int fd, char* mode, char* outputfile)
     }
 }
 
+struct test {
+    char name;
+    int number;
+};
+
 // --------------------------Sorting -n -------------------------------------
 // Separate the strings into groups, negative ints, positive ints, and regular strings.  
 // this process could be done with 2 arrays to be more memory efficient, or with some data structures.
 // However, coding the right data structures for this is problem a whole different project and
 // having arrays for each group makes it easier to code.
 
-char positive_list[500][512];  // arrays that hold the strings which
+char positive_list[500][STRING_SIZE];  // arrays that hold the strings which
 int positive_eval[500][1];     // have negative or positive integers
                                // at index 0
-char negative_list[500][512];  
+char negative_list[500][STRING_SIZE];  
 int negative_eval[500][1];
 
-char str_list[500][512];       // list for non digits at index 0
-char str_eval[500][512];
+char str_list[500][STRING_SIZE];       // list for non digits at index 0
+char str_eval[500][STRING_SIZE];
 
 void sort_n(int fd)
 {
@@ -207,7 +261,7 @@ void sort_n(int fd)
                         cur_str[j+1] = '\0';
 
                     // append to list
-                    for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                    for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                     break;
                 }
 
@@ -216,9 +270,9 @@ void sort_n(int fd)
                 cur_str[j+1] = '\0';
 
                 // append to list
-                for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                 idx++;                      // increment the index for the next str
-                memset(cur_str, 0, 512);    // clear the current string buffer for the next str
+                memset(cur_str, 0, STRING_SIZE);    // clear the current string buffer for the next str
                 j=0;                        // reset the counter
                 
                 // next char is \n
@@ -250,7 +304,7 @@ void sort_n(int fd)
         }
     }
 
-    memset(cur_str, 0, 512); // clear the buffer, used to swap
+    memset(cur_str, 0, STRING_SIZE); // clear the buffer, used to swap
     int k;
     int z = 0;
     int copy_idx = 0;
@@ -261,7 +315,7 @@ void sort_n(int fd)
     for(i=0; i<=idx; i++)
     {
         // finding alpha, or numeric character index in current string
-        for(z=0; z<512; z++)
+        for(z=0; z<STRING_SIZE; z++)
         {
             if (list[i][z] >= 48 && list[i][z] <= 57) // digits
             {
@@ -277,23 +331,23 @@ void sort_n(int fd)
             if (list[i][z] >= 97 && list[i][z] <= 122) break; // lower
             if (list[i][z] == '\0') break;
         }
-        if(z==512 || list[i][z] == '\0')    // if there is not a numeric || alpha char, copy all the string
+        if(z==STRING_SIZE || list[i][z] == '\0')    // if there is not a numeric || alpha char, copy all the string
         {
-            for(k = 0; k<512; k++) cur_str[copy_idx] = list[i][copy_idx];
+            for(k = 0; k<STRING_SIZE; k++) cur_str[copy_idx] = list[i][copy_idx];
         }
         else // truncate the string until the desired character
         {
             copy_idx = 0;
-            for(k = z; k<512; k++)
+            for(k = z; k<STRING_SIZE; k++)
             {
                 cur_str[copy_idx] = list[i][k];
                 copy_idx++;
             }
         }
         // copy the string into eval
-        for(j=0; j<512;j++) eval[eidx][j] = cur_str[j];
+        for(j=0; j<STRING_SIZE;j++) eval[eidx][j] = cur_str[j];
         eidx++; // increase index for next string
-        memset(cur_str, 0, 512);
+        memset(cur_str, 0, STRING_SIZE);
     }
     
     int positive_idx = 0;
@@ -304,12 +358,12 @@ void sort_n(int fd)
     {
         if(eval[i][0] == 45)  // negative ints
         {
-            for(j=0; j<512;j++) 
+            for(j=0; j<STRING_SIZE;j++) 
                 negative_list[negative_idx][j] = list[i][j];
             
             // have to parse the integer without "-"
-            memset(cur_str, 0, 512);
-            for(j=1; j<512;j++)
+            memset(cur_str, 0, STRING_SIZE);
+            for(j=1; j<STRING_SIZE;j++)
             {
                 if (list[i][j] >= 48 && list[i][j] <= 57)
                     cur_str[j-1] = eval[i][j];
@@ -326,7 +380,7 @@ void sort_n(int fd)
         }
         else if(eval[i][0] >= 48 && eval[i][0] <= 57) // positive ints
         {
-            for(j=0; j<512;j++) 
+            for(j=0; j<STRING_SIZE;j++) 
                 positive_list[positive_idx][j] = list[i][j];
 
             positive_eval[positive_idx][0] = atoi(eval[i]);
@@ -334,7 +388,7 @@ void sort_n(int fd)
         }
         else    // else they are regular ints
         {
-            for(j=0; j<512;j++) 
+            for(j=0; j<STRING_SIZE;j++) 
             {
                 str_list[str_idx][j] = list[i][j];
                 str_eval[str_idx][j] = eval[i][j];
@@ -354,9 +408,9 @@ void sort_n(int fd)
                 if(negative_eval[i][0] > negative_eval[j][0])
                 {
                     // original elements
-                    for(k=0; k<512;k++) cur_str[k] = negative_list[i][k];
-                    for(k=0; k<512;k++) negative_list[i][k] = negative_list[j][k]; 
-                    for(k=0; k<512;k++) negative_list[j][k] = cur_str[k];
+                    for(k=0; k<STRING_SIZE;k++) cur_str[k] = negative_list[i][k];
+                    for(k=0; k<STRING_SIZE;k++) negative_list[i][k] = negative_list[j][k]; 
+                    for(k=0; k<STRING_SIZE;k++) negative_list[j][k] = cur_str[k];
                     // truncated elements
                     int_t = negative_eval[i][0];
                     negative_eval[i][0] = negative_eval[j][0]; 
@@ -375,9 +429,9 @@ void sort_n(int fd)
                 if(positive_eval[i][0] > positive_eval[j][0])
                 {
                     // original elements
-                    for(k=0; k<512;k++) cur_str[k] = positive_list[i][k];
-                    for(k=0; k<512;k++) positive_list[i][k] = positive_list[j][k]; 
-                    for(k=0; k<512;k++) positive_list[j][k] = cur_str[k];
+                    for(k=0; k<STRING_SIZE;k++) cur_str[k] = positive_list[i][k];
+                    for(k=0; k<STRING_SIZE;k++) positive_list[i][k] = positive_list[j][k]; 
+                    for(k=0; k<STRING_SIZE;k++) positive_list[j][k] = cur_str[k];
                     // truncated elements
                     int_t = positive_eval[i][0];
                     positive_eval[i][0] = positive_eval[j][0]; 
@@ -396,13 +450,13 @@ void sort_n(int fd)
                 if(strcmp(str_eval[i], str_eval[j]) > 0)
                 {
                     // original elements
-                    for(k=0; k<512;k++) cur_str[k] = str_list[i][k];
-                    for(k=0; k<512;k++) str_list[i][k] = str_list[j][k]; 
-                    for(k=0; k<512;k++) str_list[j][k] = cur_str[k];
+                    for(k=0; k<STRING_SIZE;k++) cur_str[k] = str_list[i][k];
+                    for(k=0; k<STRING_SIZE;k++) str_list[i][k] = str_list[j][k]; 
+                    for(k=0; k<STRING_SIZE;k++) str_list[j][k] = cur_str[k];
                     // truncated elements
-                    for(k=0; k<512;k++) cur_str[k] = str_eval[i][k];
-                    for(k=0; k<512;k++) str_eval[i][k] = str_eval[j][k]; 
-                    for(k=0; k<512;k++) str_eval[j][k] = cur_str[k];
+                    for(k=0; k<STRING_SIZE;k++) cur_str[k] = str_eval[i][k];
+                    for(k=0; k<STRING_SIZE;k++) str_eval[i][k] = str_eval[j][k]; 
+                    for(k=0; k<STRING_SIZE;k++) str_eval[j][k] = cur_str[k];
                 }
             }
         }

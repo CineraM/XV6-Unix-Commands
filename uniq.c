@@ -11,14 +11,7 @@ uniq & cat for xv6.
 
 Template parameters of the program:
     - uniq arg1 arg2(optional) filename
-
-Examples:
-    - uniq cat README
-    - uniq uniq README
-    - uniq uniq -s README
-
-Note: cat does not support "-" extensions
-such as "-i"
+    - uniq cat filename | uniq
 
 -----------------------------------------
 -----------------------------------------
@@ -26,10 +19,11 @@ such as "-i"
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#define STRING_SIZE 512         // array size for all strings
 
-char buf[5120];          // store the contents of the file
-char cur_str[512];      // used as a temp string, later to be inserted into list
-char list[500][512];    // array that holds all the strings
+char buf[5120];                 // store the contents of the file
+char cur_str[STRING_SIZE];      // used as a temp string, later to be inserted into list
+char list[500][STRING_SIZE];    // array that holds all the strings
 
 // based on the cat implementation in xv6
 void cat(int fd)
@@ -75,7 +69,7 @@ void uniq(int fd, int eval)
                         cur_str[j+1] = '\0';
 
                     // append to list
-                    for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                    for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                     break;
                 }
 
@@ -84,9 +78,9 @@ void uniq(int fd, int eval)
                 cur_str[j+1] = '\0';
 
                 // append to list
-                for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                 idx++;                      // increment the index for the next str
-                memset(cur_str, 0, 512);    // clear the current string buffer for the next str
+                memset(cur_str, 0, STRING_SIZE);    // clear the current string buffer for the next str
                 j=0;                        // reset the counter
                 
                 // next char is \n
@@ -119,7 +113,7 @@ void uniq(int fd, int eval)
     }
 
     // if last line is \n remove it --> following the behaviour of uniq
-    if(list[idx][0] == '\n' && list[idx][0] == '\n') memset(list[idx], 0, 512);
+    if(list[idx][0] == '\n' && list[idx][0] == '\n') memset(list[idx], 0, STRING_SIZE);
 
     // debug, print all strings in the array
     // for(i=0; list[i][0]!='\0'; i++) printf(1, "i:%d - %s ", i,list[i]);
@@ -163,12 +157,48 @@ int main(int argc, char *argv[])
     // skip the 1st command
     int param_size = argc-1;
     int fd = 1; // initialize to aoivd bug
-
+    
     if(param_size == 1)         // no args, same as -i
     {
         if((fd = open(argv[1], 0)) < 0)
         {
             printf(1, "uniq: cannot open file %s\n", argv[1]);
+            exit();
+        }
+        uniq(fd, 0);
+        close(fd);
+    }
+    else if(param_size == 0)
+    {
+        if((fd = open("test", 0)) < 0)
+        {
+            printf(1, "uniq: cannot open file %s\n", "test");
+            exit();
+        }
+        uniq(fd, 0);
+        close(fd);
+    }
+    else if (param_size == 4)
+    {
+        if(strcmp(argv[1], "cat") != 0) 
+        {
+            printf(1, "\nError: wrong args \n");
+            exit();
+        }
+        if(strcmp(argv[3], "|") != 0)
+        {
+            printf(1, "\nError: wrong args \n");
+            exit();
+        }
+        if(strcmp(argv[4], "uniq") != 0)        
+        {
+            printf(1, "\nError: wrong args \n");
+            exit();
+        }
+
+        if((fd = open(argv[2], 0)) < 0)
+        {
+            printf(1, "uniq: cannot open file %s\n", argv[2]);
             exit();
         }
         uniq(fd, 0);

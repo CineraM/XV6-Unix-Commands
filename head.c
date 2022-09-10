@@ -10,11 +10,8 @@ The following is my implementation of
 head for xv6.
 
 Template parameters of the program:
-    - head head filename
-    - head head -n #lines filename
-Examples:
-    - head head README
-    - head head -n 43 README
+    - head filename
+    - head -n #lines filename
 
 -----------------------------------------
 -----------------------------------------
@@ -22,10 +19,11 @@ Examples:
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#define STRING_SIZE 512         // array size for all strings
 
-char buf[5120];          // store the contents of the file
-char cur_str[512];      // used as a temp string, later to be inserted into list
-char list[500][512];    // array that holds all the strings
+char buf[5120];                 // store the contents of the file
+char cur_str[STRING_SIZE];              // used as a temp string, later to be inserted into list
+char list[500][STRING_SIZE];            // array that holds all the strings
 
 void head(int fd, int limit)
 {
@@ -51,7 +49,7 @@ void head(int fd, int limit)
                         cur_str[j+1] = '\0';
 
                     // append to list
-                    for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                    for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                     break;
                 }
 
@@ -60,9 +58,9 @@ void head(int fd, int limit)
                 cur_str[j+1] = '\0';
 
                 // append to list
-                for(j=0; j<512;j++) list[idx][j] = cur_str[j];
+                for(j=0; j<STRING_SIZE;j++) list[idx][j] = cur_str[j];
                 idx++;                      // increment the index for the next str
-                memset(cur_str, 0, 512);    // clear the current string buffer for the next str
+                memset(cur_str, 0, STRING_SIZE);    // clear the current string buffer for the next str
                 j=0;                        // reset the counter
                 
                 // next char is \n
@@ -136,7 +134,7 @@ int main(int argc, char *argv[])
                     printf(1, "uniq: cannot open file %s\n", argv[3]);
                     exit();
                 }
-                printf(1, "num: %d\n", num_lines);  
+                 
                 head(fd, num_lines);
                 close(fd);
             }  
