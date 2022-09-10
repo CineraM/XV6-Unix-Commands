@@ -16,9 +16,11 @@ Template parameters of the program:
 -----------------------------------------
 -----------------------------------------
 ----------------------------------------*/
+#include "fcntl.h"
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "fs.h"
 #define STRING_SIZE 512         // array size for all strings
 
 char buf[5120];                 // store the contents of the file
@@ -44,7 +46,6 @@ void cat(int fd)
     }
 }
 
-// void uniq(int fd, char* eval)
 void uniq(int fd, int eval)
 {
     int n, i;
@@ -115,9 +116,6 @@ void uniq(int fd, int eval)
     // if last line is \n remove it --> following the behaviour of uniq
     if(list[idx][0] == '\n' && list[idx][0] == '\n') memset(list[idx], 0, STRING_SIZE);
 
-    // debug, print all strings in the array
-    // for(i=0; list[i][0]!='\0'; i++) printf(1, "i:%d - %s ", i,list[i]);
-
     // printing uniq
     int count = 1;
     char* cur;
@@ -152,13 +150,75 @@ void uniq(int fd, int eval)
     }
 }
 
+// save contents to a file
+void save(char* contents)
+{
+    int fd, i;
+    char copy_contens[10] = ""; 
+    for (i=0; i<10; i++) copy_contens[i] = contents[i];
+
+    fd = open("savestr", O_CREATE | O_RDWR);
+    if(fd >= 0) {
+    } else {
+        exit();
+    }
+    int size = sizeof(copy_contens);
+    if(write(fd, &copy_contens, size) != size){
+        exit();
+    }
+    close(fd);
+}
+
 int main(int argc, char *argv[])
 {
     // skip the 1st command
     int param_size = argc-1;
     int fd = 1; // initialize to aoivd bug
-    
-    if(param_size == 1)         // no args, same as -i
+
+    int pid;            // pipe and pid will only be used for 
+    int fdd[2];         // cat filename | uniq
+
+    // only one conditino can create a child
+    if(strcmp(argv[1], "cat") == 0) // whenever cat is called
+    {                               // store the file arg
+        pid = fork();
+        pipe(fdd);
+
+        close(fdd[0]);              // close the parent pipe
+        char copy_contens[10];
+        int i;
+        for (i=0; i<10; i++) copy_contens[i] = argv[2][i];
+        save(copy_contens);
+        wait();
+        
+    }
+    else if(param_size == 0)
+    {
+        pid = fork();
+        pipe(fdd);
+        
+        if(pid!=0)          // if parent exit
+        {                   // otherwise there will be 2 prints
+            wait();
+            exit();
+        }
+            
+        int n;              // copy the file name
+        char copy_str[10] = {'a'};
+        if((n = open("savestr", 0)) < 0) exit();
+        read(n, copy_str, 10);
+        close(fdd[1]);      // load the string
+
+        if((fd = open(copy_str, 0)) < 0)    // call uniq 
+        {
+            printf(1, "uniq: cannot open file %s\n", copy_str);
+            exit();
+        }
+        uniq(fd, 0);
+        close(fd);
+        wait();
+    }
+    else if(param_size == 1)         // no args, same as -i
     {
         if((fd = open(argv[1], 0)) < 0)
         {
@@ -168,44 +228,9 @@ int main(int argc, char *argv[])
         uniq(fd, 0);
         close(fd);
     }
-    else if(param_size == 0)
-    {
-        if((fd = open("test", 0)) < 0)
-        {
-            printf(1, "uniq: cannot open file %s\n", "test");
-            exit();
-        }
-        uniq(fd, 0);
-        close(fd);
-    }
-    else if (param_size == 4)
-    {
-        if(strcmp(argv[1], "cat") != 0) 
-        {
-            printf(1, "\nError: wrong args \n");
-            exit();
-        }
-        if(strcmp(argv[3], "|") != 0)
-        {
-            printf(1, "\nError: wrong args \n");
-            exit();
-        }
-        if(strcmp(argv[4], "uniq") != 0)        
-        {
-            printf(1, "\nError: wrong args \n");
-            exit();
-        }
-
-        if((fd = open(argv[2], 0)) < 0)
-        {
-            printf(1, "uniq: cannot open file %s\n", argv[2]);
-            exit();
-        }
-        uniq(fd, 0);
-        close(fd);
-    }
     else
     {
+
         if((fd = open(argv[2], 0)) < 0)
         {
             printf(1, "uniq: cannot open file %s\n", argv[2]);
